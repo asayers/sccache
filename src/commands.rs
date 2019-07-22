@@ -549,6 +549,7 @@ pub fn run_command(cmd: Command) -> Result<i32> {
             match fmt {
                 StatsFormat::text => stats.print(),
                 StatsFormat::json => serde_json::to_writer(&mut io::stdout(), &stats)?,
+                StatsFormat::prometheus => stats.print_prometheus(),
             }
         }
         Command::InternalStartServer => {

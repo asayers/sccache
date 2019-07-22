@@ -28,7 +28,8 @@ arg_enum!{
     #[allow(non_camel_case_types)]
     pub enum StatsFormat {
         text,
-        json
+        json,
+        prometheus
     }
 }
 

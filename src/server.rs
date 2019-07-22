@@ -1346,6 +1346,95 @@ impl ServerStats {
         }
         (name_width, stat_width)
     }
+
+    /// Print stats to stdout in the prometheus exposition format.
+    fn print_prometheus(&self) {
+        println!("requests_total {}", self.compile_requests);
+        println!(r#"requests{{result="executed"}} {}"#, self.requests_executed);
+        println!(
+            r#"requests{{result="non_cacheable"}} {}"#,
+            self.requests_not_cacheable,
+        );
+        println!(
+            r#"requests{{result="non_compilation"}} {}"#,
+            self.requests_not_compile,
+        );
+        println!(
+            r#"requests{{result="unsupported_compiler"}} {}"#,
+            self.requests_unsupported_compiler,
+        );
+        for (lang, count) in &self.cache_hits.counts {
+            println!(
+                r#"cache_hits{{lang="{}"}} {}"#,
+                lang, count
+            );
+        }
+        for (lang, count) in &self.cache_misses.counts {
+            println!(
+                r#"cache_misses{{lang="{}"}} {}"#,
+                lang, count
+            );
+        }
+        for (lang, count) in &self.cache_errors.counts {
+            println!(
+                r#"cache_errors{{lang="{}"}} {}"#,
+                lang, count
+            );
+        }
+        println!(r#"errors{{type="timeout"}} {}"#, self.cache_timeouts);
+        println!(r#"errors{{type="cache_read"}} {}"#, self.cache_read_errors);
+        println!(
+            r#"errors{{type="cache_write"}} {}"#,
+            self.cache_write_errors
+        );
+        println!(
+            r#"errors{{type="compilation_failure"}} {}"#,
+            self.compile_fails
+        );
+        println!("forced_recaches {}", self.forced_recaches);
+        println!(
+            "non_cacheable_compilations {}",
+            self.non_cacheable_compilations,
+        );
+        println!(
+            r#"distributed_compilations {}"#,
+            self.dist_compiles + self.dist_errors,
+        );
+        println!(
+            r#"distributed_compilation_errors {}"#,
+            self.dist_errors,
+        );
+        println!(
+            r#"call_duration_sum{{type="write"}} {}.{:03}"#,
+            self.cache_write_duration.as_secs(),
+            self.cache_write_duration.subsec_millis()
+        );
+        println!(
+            r#"call_duration_sum{{type="read_miss"}} {}.{:03}"#,
+            self.cache_read_miss_duration.as_secs(),
+            self.cache_read_miss_duration.subsec_millis()
+        );
+        println!(
+            r#"call_duration_sum{{type="read_hit"}} {}.{:03}"#,
+            self.cache_read_hit_duration.as_secs(),
+            self.cache_read_hit_duration.subsec_millis()
+        );
+        println!(
+            r#"call_duration_count{{type="write"}} {}"#,
+            self.cache_writes
+        );
+        println!(
+            r#"call_duration_count{{type="read_miss"}} {}"#,
+            self.cache_misses.all(),
+        );
+        println!(
+            r#"call_duration_count{{type="read_hit"}} {}"#,
+            self.cache_hits.all(),
+        );
+        for (reason, count) in &self.not_cached {
+            println!(r#"uncacheable_requests{{reason="{}"}} {}"#, reason, count,);
+        }
+    }
 }
 
 impl ServerInfo {
@@ -1375,6 +1464,23 @@ impl ServerInfo {
                     name_width = name_width,
                     stat_width = stat_width
                 );
+            }
+        }
+    }
+
+    /// Print info to stdout in the prometheus text exposition format.
+    pub fn print_prometheus(&self) {
+        self.stats.print_prometheus();
+        // Don't include the cache location
+        for &(name, val) in &[
+            ("cache_size", &self.cache_size),
+            ("max_cache_size", &self.max_cache_size),
+        ] {
+            if let &Some(val) = val {
+                match binary_prefix(val as f64) {
+                    Standalone(bytes) => println!("{}_bytes {}", name, bytes),
+                    Prefixed(prefix, n) => println!("{}_{}B {:.03}", name, prefix, n),
+                }
             }
         }
     }
